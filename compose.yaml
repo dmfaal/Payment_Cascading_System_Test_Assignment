@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+
+  redis:
+    # Optional placeholder: the app does not use Redis yet.
+    profiles: ["queue"]
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"

@@ -6,6 +6,7 @@ import httpx
 from pydantic import BaseModel
 
 from app.config import Settings
+from app.providers.base import PaymentRequest, ProviderResult
 
 
 class PaymentIntent(BaseModel):
@@ -92,3 +93,33 @@ class StripeClient:
         response = await self._http.get(f"payment_intents/{payment_intent_id}")
         response.raise_for_status()
         return PaymentIntent.model_validate(response.json())
+
+
+class StripeProvider:
+    """Translate Stripe responses into conservative cascade decisions."""
+
+    def __init__(self, client: StripeClient) -> None:
+        self.client = client
+
+    async def pay(self, payment: PaymentRequest) -> ProviderResult:
+        try:
+            intent = await self.client.create_payment(**payment.model_dump())
+        except httpx.HTTPStatusError as exc:
+            # Even a definite card decline does not permit automatic rerouting.
+            status = "failed" if exc.response.status_code in (400, 401, 402, 403, 404) else "unknown"
+            return ProviderResult(
+                provider="stripe", status=status,
+                reason=f"Stripe HTTP {exc.response.status_code}; cascade stopped",
+            )
+        except (httpx.RequestError, ValueError):
+            return ProviderResult(
+                provider="stripe", status="unknown",
+                reason="Network error or invalid response; reconcile with Stripe",
+            )
+        return ProviderResult(
+            provider="stripe",
+            status="succeeded" if intent.status == "succeeded" else "unknown",
+            payment_id=intent.id,
+            reason=f"Stripe status: {intent.status}",
+        )
+

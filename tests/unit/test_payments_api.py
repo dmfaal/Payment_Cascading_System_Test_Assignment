@@ -1,0 +1,120 @@
+import asyncio
+import unittest
+from unittest.mock import patch
+
+import httpx
+
+from app.config import Settings
+from app.db.session import InMemoryStorage
+from app.main import create_app
+from app.providers.stripe import StripeClient
+
+
+class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.requests = []
+        self.body = {"amount": 100, "currency": "EUR", "idempotency_key": "api-test-001"}
+        self.reply = {"id": "pi_test", "status": "succeeded", "amount": 100, "currency": "eur"}
+        self.http_status = 200
+        self.entered = None
+        self.release = None
+
+        async def handler(request):
+            self.requests.append(request)
+            if self.entered is not None:
+                self.entered.set()
+                await self.release.wait()
+            return httpx.Response(self.http_status, json=self.reply)
+
+        settings = Settings(_env_file=None, stripe_api_key="sk_test_dummy")
+        self.patches = [
+            patch("app.api.payments.storage", InMemoryStorage()),
+            patch("app.api.payments.get_settings", return_value=settings),
+            patch(
+                "app.api.payments.StripeClient",
+                side_effect=lambda settings: StripeClient(settings, transport=httpx.MockTransport(handler)),
+            ),
+        ]
+        for item in self.patches:
+            item.start()
+            self.addCleanup(item.stop)
+        self.client = httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app()), base_url="http://test")
+        self.addAsyncCleanup(self.client.aclose)
+
+    async def test_create_get_and_repeat(self):
+        created = await self.client.post("/v1/payments", json=self.body)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()["status"], "succeeded")
+        repeated = await self.client.post("/v1/payments", json=self.body)
+        self.assertEqual(repeated.status_code, 200)
+        self.assertEqual(repeated.json(), created.json())
+        found = await self.client.get(f"/v1/payments/{created.json()['id']}")
+        self.assertEqual(found.status_code, 200)
+        self.assertEqual(found.json()["status"], "succeeded")
+        self.assertEqual(len(self.requests), 1)
+
+    async def test_changed_parameters_conflict(self):
+        await self.client.post("/v1/payments", json=self.body)
+        for change in ({"amount": 200}, {"providers": ["mock", "stripe"]}):
+            response = await self.client.post("/v1/payments", json=self.body | change)
+            self.assertEqual(response.status_code, 409)
+        self.assertEqual(len(self.requests), 1)
+
+    async def test_invalid_requests_do_not_call_stripe(self):
+        for change in (
+            {"providers": []},
+            {"providers": ["missing"]},
+            {"amount": True},
+            {"amount": 1.5},
+            {"amount": 0},
+            {"idempotency_key": "   "},
+        ):
+            with self.subTest(change=change):
+                response = await self.client.post("/v1/payments", json=self.body | change)
+                self.assertEqual(response.status_code, 422)
+        self.assertEqual(self.requests, [])
+
+    async def test_mock_fallback_to_stripe(self):
+        response = await self.client.post("/v1/payments", json=self.body | {"providers": ["mock", "stripe"]})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["status"], "succeeded")
+        self.assertEqual(
+            [(a["provider"], a["status"]) for a in response.json()["attempts"]],
+            [("mock", "unavailable"), ("stripe", "succeeded")],
+        )
+        self.assertEqual(len(self.requests), 1)
+
+    async def test_mock_only_route(self):
+        response = await self.client.post("/v1/payments", json=self.body | {"providers": ["mock"]})
+        self.assertEqual(response.json()["status"], "failed")
+        self.assertEqual(self.requests, [])
+
+    async def test_concurrent_repeat_observes_processing(self):
+        self.entered, self.release = asyncio.Event(), asyncio.Event()
+        first = asyncio.create_task(self.client.post("/v1/payments", json=self.body))
+        try:
+            await asyncio.wait_for(self.entered.wait(), timeout=2)
+            repeated = await self.client.post("/v1/payments", json=self.body)
+            self.assertEqual(repeated.status_code, 202)
+            self.assertEqual(repeated.json()["status"], "processing")
+            found = await self.client.get(f"/v1/payments/{repeated.json()['id']}")
+            self.assertEqual(found.json()["status"], "processing")
+        finally:
+            self.release.set()
+            completed = await first
+        self.assertEqual(completed.json()["id"], repeated.json()["id"])
+        self.assertEqual(completed.json()["status"], "succeeded")
+        self.assertEqual(len(self.requests), 1)
+
+    async def test_unknown_is_saved_and_not_retried(self):
+        self.http_status = 500
+        self.reply = {"error": {"type": "api_error"}}
+        first = await self.client.post("/v1/payments", json=self.body)
+        repeated = await self.client.post("/v1/payments", json=self.body)
+        self.assertEqual(first.json()["status"], "unknown")
+        self.assertEqual(repeated.json(), first.json())
+        self.assertEqual(len(self.requests), 1)
+
+    async def test_missing_payment(self):
+        response = await self.client.get("/v1/payments/missing")
+        self.assertEqual(response.status_code, 404)

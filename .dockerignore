@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+.venv
+.git
+.idea
+.gigacode
+**/__pycache__
+*.pyc
+.ruff_cache

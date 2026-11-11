@@ -9,13 +9,14 @@ from app.config import get_settings
 from app.providers.stripe import StripeClient
 
 
-async def main(idempotency_key: str) -> None:
+async def main(idempotency_key: str, payment_method: str) -> None:
     async with StripeClient(get_settings()) as client:
         try:
             payment = await client.create_payment(
                 amount_minor=100,
                 currency="eur",
                 idempotency_key=idempotency_key,
+                payment_method=payment_method,
             )
             print("Created:", payment.model_dump_json())
             payment = await client.get_payment(payment.id)
@@ -46,5 +47,6 @@ async def main(idempotency_key: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create a 1 EUR Stripe Sandbox payment")
     parser.add_argument("--idempotency-key", required=True)
+    parser.add_argument("--payment-method", default="pm_card_visa")
     args = parser.parse_args()
-    asyncio.run(main(args.idempotency_key))
+    asyncio.run(main(args.idempotency_key, args.payment_method))
