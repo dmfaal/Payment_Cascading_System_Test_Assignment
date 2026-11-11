@@ -77,6 +77,38 @@ class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(response.status_code, 422)
         self.assertEqual(self.requests, [])
 
+    async def test_invalid_idempotency_keys_do_not_call_stripe(self):
+        """API: кириллица, пробелы, спецсимволы и неверная длина ключа дают 422 до HTTP."""
+        for key in (
+            "платёж-001",
+            "café",
+            "demo 001",
+            " demo",
+            "demo ",
+            "demo\n",
+            "demo\r\nX-Test: 1",
+            "demo\t001",
+            "demo/001",
+            "demo.001",
+            "",
+            "a" * 256,
+        ):
+            with self.subTest(key=repr(key)):
+                response = await self.client.post("/v1/payments", json=self.body | {"idempotency_key": key})
+                self.assertEqual(response.status_code, 422)
+                self.assertTrue(any(error["loc"][-1] == "idempotency_key" for error in response.json()["detail"]))
+        self.assertEqual(self.requests, [])
+
+    async def test_valid_idempotency_keys_are_forwarded_unchanged(self):
+        """API: допустимые ключи длиной 1-255 символов передаются в заголовок Stripe без изменений."""
+        for key in ("a", "Order_001-test", "550e8400-e29b-41d4-a716-446655440000", "a" * 255):
+            with self.subTest(key=key):
+                response = await self.client.post("/v1/payments", json=self.body | {"idempotency_key": key})
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual(response.json()["status"], "succeeded")
+                self.assertEqual(self.requests[-1].headers["Idempotency-Key"], key)
+        self.assertEqual(len(self.requests), 4)
+
     async def test_mock_fallback_to_stripe(self):
         """API: mock возвращает unavailable; Stripe завершает платёж; проверить порядок попыток."""
         response = await self.client.post("/v1/payments", json=self.body | {"providers": ["mock", "stripe"]})

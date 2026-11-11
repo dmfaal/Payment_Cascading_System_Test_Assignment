@@ -9,7 +9,12 @@ class PaymentCreateRequest(BaseModel):
     amount: int = Field(gt=0, strict=True, description="Payment amount in minor units (cents)")
     currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
     payment_method: str = Field(default="pm_card_visa", description="Stripe test PaymentMethod ID")
-    idempotency_key: str = Field(min_length=1, max_length=255, pattern=r"\S")
+    idempotency_key: str = Field(
+        min_length=1,
+        max_length=255,
+        pattern=r"^[A-Za-z0-9_-]+$",
+        description="1-255 ASCII letters, digits, hyphens or underscores",
+    )
     providers: list[str] = Field(default_factory=lambda: ["stripe"], min_length=1)
 
 
