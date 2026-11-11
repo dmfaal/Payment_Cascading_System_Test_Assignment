@@ -17,6 +17,7 @@ class CascadeTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_fallback_after_explicit_safe_rejection(self):
+        """Каскад: безопасный отказ первого провайдера; вызвать backup и получить успех."""
         backup = MockProvider("backup", "succeeded")
         backup.pay = AsyncMock(wraps=backup.pay)
         result = await cascade_payment(
@@ -27,6 +28,7 @@ class CascadeTests(unittest.IsolatedAsyncioTestCase):
         backup.pay.assert_awaited_once_with(self.payment)
 
     async def test_terminal_outcomes_do_not_call_backup(self):
+        """Каскад: успех, отказ или unknown; проверить, что backup не вызывается."""
         for outcome in ("succeeded", "failed", "unknown"):
             with self.subTest(outcome=outcome):
                 backup = MockProvider("backup", "succeeded")
@@ -39,6 +41,7 @@ class CascadeTests(unittest.IsolatedAsyncioTestCase):
                 backup.pay.assert_not_awaited()
 
     async def test_all_unavailable_means_failed(self):
+        """Каскад: оба провайдера недоступны; сохранить две попытки и вернуть failed."""
         result = await cascade_payment(self.payment, [
             MockProvider("primary", "unavailable"), MockProvider("backup", "unavailable")
         ])
@@ -46,10 +49,12 @@ class CascadeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result.attempts), 2)
 
     async def test_empty_route_is_invalid(self):
+        """Каскад: передать пустой маршрут; получить ValueError."""
         with self.assertRaises(ValueError):
             await cascade_payment(self.payment, [])
 
     async def test_stripe_outcomes_stop_cascade(self):
+        """Адаптер: проверить успех, незавершённый статус, ошибки и таймаут; не вызывать backup."""
         cases = [
             (200, {"id": "pi_test", "status": "succeeded", "amount": 100, "currency": "eur"}, "succeeded"),
             (200, {"id": "pi_test", "status": "requires_action", "amount": 100, "currency": "eur"}, "unknown"),

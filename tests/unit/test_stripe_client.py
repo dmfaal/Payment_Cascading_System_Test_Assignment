@@ -16,6 +16,7 @@ class StripeClientTests(unittest.IsolatedAsyncioTestCase):
         return StripeClient(settings, transport=httpx.MockTransport(handler))
 
     async def test_create_and_retrieve_payment(self):
+        """Stripe: создать платёж, проверить параметры запроса, получить тот же платёж по ID."""
         requests = []
 
         def handler(request):
@@ -45,6 +46,7 @@ class StripeClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(requests), 2)
 
     async def test_decline_and_server_error_propagate_without_retry(self):
+        """Stripe: вернуть 402 и 500; проверить передачу ошибки и отсутствие повторного вызова."""
         for status_code in (402, 500):
             with self.subTest(status_code=status_code):
                 requests = []
@@ -62,6 +64,7 @@ class StripeClientTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(len(requests), 1)
 
     async def test_timeout_propagates_without_retry(self):
+        """Stripe: имитировать таймаут; проверить исключение и ровно один запрос."""
         requests = []
 
         def handler(request):
@@ -76,6 +79,7 @@ class StripeClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(requests), 1)
 
     async def test_invalid_amount_does_not_send_request(self):
+        """Stripe: передать неверные суммы; отклонить их до отправки HTTP-запроса."""
         def handler(request):
             self.fail("Invalid input must not reach Stripe")
 

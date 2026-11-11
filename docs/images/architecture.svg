@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1260" viewBox="0 0 900 1260" role="img" aria-labelledby="title desc">
+<title id="title">Каскадирование платежей</title>
+<desc id="desc">Путь нового POST: резервирование ключа, безопасный отказ mock, вызов Stripe и сохранение результата. GET читает память.</desc>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="900" height="1260" fill="#ffffff"/>
+<text x="450" y="37" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="27" fill="#0f172a">Путь платежа: mock → Stripe</text>
+<rect x="55" y="70" width="790" height="100" rx="16" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+<text x="450" y="108" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="25" fill="#0f172a">Swagger UI / HTTP-клиент</text>
+<text x="450" y="142" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#0f172a">POST /v1/payments</text>
+<line x1="450" y1="172" x2="450" y2="223" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="185" width="770" height="25" fill="#ffffff"/>
+<text x="450" y="204" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#475569">100 · EUR · demo-001 · [mock, stripe]</text>
+<rect x="55" y="235" width="790" height="100" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="450" y="273" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="25" fill="#0f172a">FastAPI</text>
+<text x="450" y="307" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#0f172a">Проверка данных и ключа идемпотентности</text>
+<line x1="450" y1="337" x2="450" y2="388" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="350" width="770" height="25" fill="#ffffff"/>
+<text x="450" y="369" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#475569">Резервирование до внешнего вызова</text>
+<rect x="55" y="400" width="790" height="100" rx="16" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="450" y="438" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="25" fill="#0f172a">Хранилище в памяти</text>
+<text x="450" y="472" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#0f172a">UUID · ключ · параметры · status=processing</text>
+<line x1="450" y1="502" x2="450" y2="553" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="515" width="770" height="25" fill="#ffffff"/>
+<text x="450" y="534" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#475569">Новая операция → выполнение каскада</text>
+<rect x="55" y="565" width="790" height="100" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="450" y="603" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="25" fill="#0f172a">Каскад</text>
+<text x="450" y="637" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#0f172a">Последовательный вызов провайдеров</text>
+<line x1="450" y1="667" x2="450" y2="718" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="680" width="770" height="25" fill="#ffffff"/>
+<text x="450" y="699" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#475569">PaymentRequest: сумма · валюта · способ оплаты</text>
+<rect x="55" y="730" width="790" height="100" rx="16" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+<text x="450" y="768" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="25" fill="#0f172a">Mock → Stripe-адаптер</text>
+<text x="450" y="802" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#0f172a">Mock: unavailable → разрешён fallback</text>
+<line x1="450" y1="832" x2="450" y2="883" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="845" width="770" height="25" fill="#ffffff"/>
+<text x="450" y="864" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#475569">httpx: amount=100 · confirm=true · Idempotency-Key</text>
+<rect x="55" y="895" width="790" height="100" rx="16" fill="#fce7f3" stroke="#db2777" stroke-width="2"/>
+<text x="450" y="933" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="25" fill="#0f172a">Stripe Sandbox</text>
+<text x="450" y="967" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#0f172a">Тестовый PaymentIntent: pi_…</text>
+<line x1="450" y1="997" x2="450" y2="1048" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="1010" width="770" height="25" fill="#ffffff"/>
+<text x="450" y="1029" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#475569">ProviderResult: succeeded / failed / unknown</text>
+<rect x="55" y="1060" width="790" height="100" rx="16" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="450" y="1098" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="25" fill="#0f172a">Сохранение результата и ответ API</text>
+<text x="450" y="1132" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#0f172a">status + attempts → память; UUID + результат → клиент</text>
+<text x="450" y="1200" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="19" fill="#0f172a">GET /v1/payments/{id} и повторный POST читают сохранённую запись.</text>
+<text x="450" y="1232" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="19" fill="#0f172a">Успех, отказ карты и unknown останавливают каскад.</text>
+</svg>

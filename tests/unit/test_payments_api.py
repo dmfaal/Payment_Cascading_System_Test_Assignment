@@ -42,6 +42,7 @@ class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.client.aclose)
 
     async def test_create_get_and_repeat(self):
+        """API: создать платёж, повторить POST, прочитать GET; проверить один вызов Stripe."""
         created = await self.client.post("/v1/payments", json=self.body)
         self.assertEqual(created.status_code, 201)
         self.assertEqual(created.json()["status"], "succeeded")
@@ -54,6 +55,7 @@ class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.requests), 1)
 
     async def test_changed_parameters_conflict(self):
+        """API: повторить ключ с другой суммой или маршрутом; получить 409 без нового списания."""
         await self.client.post("/v1/payments", json=self.body)
         for change in ({"amount": 200}, {"providers": ["mock", "stripe"]}):
             response = await self.client.post("/v1/payments", json=self.body | change)
@@ -61,6 +63,7 @@ class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.requests), 1)
 
     async def test_invalid_requests_do_not_call_stripe(self):
+        """API: передать неверные сумму, маршрут и ключ; получить 422 без вызова Stripe."""
         for change in (
             {"providers": []},
             {"providers": ["missing"]},
@@ -75,6 +78,7 @@ class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.requests, [])
 
     async def test_mock_fallback_to_stripe(self):
+        """API: mock возвращает unavailable; Stripe завершает платёж; проверить порядок попыток."""
         response = await self.client.post("/v1/payments", json=self.body | {"providers": ["mock", "stripe"]})
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["status"], "succeeded")
@@ -85,11 +89,13 @@ class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.requests), 1)
 
     async def test_mock_only_route(self):
+        """API: вызвать только mock; получить failed без обращения к Stripe."""
         response = await self.client.post("/v1/payments", json=self.body | {"providers": ["mock"]})
         self.assertEqual(response.json()["status"], "failed")
         self.assertEqual(self.requests, [])
 
     async def test_concurrent_repeat_observes_processing(self):
+        """API: задержать первый POST, отправить повтор; получить 202 и один вызов Stripe."""
         self.entered, self.release = asyncio.Event(), asyncio.Event()
         first = asyncio.create_task(self.client.post("/v1/payments", json=self.body))
         try:
@@ -107,6 +113,7 @@ class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.requests), 1)
 
     async def test_unknown_is_saved_and_not_retried(self):
+        """API: имитировать HTTP 500 Stripe, повторить POST; вернуть сохранённый unknown."""
         self.http_status = 500
         self.reply = {"error": {"type": "api_error"}}
         first = await self.client.post("/v1/payments", json=self.body)
@@ -116,5 +123,6 @@ class PaymentApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.requests), 1)
 
     async def test_missing_payment(self):
+        """API: запросить отсутствующий ID; получить 404."""
         response = await self.client.get("/v1/payments/missing")
         self.assertEqual(response.status_code, 404)
