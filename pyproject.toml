@@ -6,7 +6,10 @@ authors = [
     { name = "Dmitry", email = "dmfaal@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.16.2",
+]
 
 [project.scripts]
 payment-cascading-system-test-assignment = "payment_cascading_system_test_assignment:main"
