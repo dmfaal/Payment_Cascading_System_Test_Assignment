@@ -2,3 +2,5 @@
 .venv/
 .gigacode
 .idea
+__pycache__/
+*.pyc
